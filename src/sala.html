@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sala de Reunião</title>
+
+    <!-- Importação do Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Importação do PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+
+    <style>
+        #videos {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        video {
+            width: 300px;
+            height: 200px;
+            border: 2px solid #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sala de Reunião</h1>
+    <div id="videos"></div>
+
+    <script>
+        // Inicializa Socket.io
+        const socket = io();
+
+        // Inicializa PeerJS
+        const peer = new Peer(undefined, {
+            host: window.location.hostname,
+            port: 3000,
+            path: "/peerjs"
+        });
+
+        // Container de vídeos
+        const videoContainer = document.getElementById("videos");
+
+        // Função para adicionar vídeo na tela
+        function addVideoStream(video, stream) {
+            video.srcObject = stream;
+            video.addEventListener("loadedmetadata", () => {
+                video.play();
+            });
+            videoContainer.appendChild(video);
+        }
+
+        // Captura o ID da sala pela URL
+        const roomId = window.location.pathname.split("/")[2];
+
+        // Acessa a câmera e microfone do usuário
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                const myVideo = document.createElement("video");
+                myVideo.muted = true; // Evita eco do próprio microfone
+                addVideoStream(myVideo, stream);
+
+                // Responde chamadas de novos participantes
+                peer.on("call", call => {
+                    call.answer(stream);
+                    const newVideo = document.createElement("video");
+                    call.on("stream", userVideoStream => {
+                        addVideoStream(newVideo, userVideoStream);
+                    });
+                });
+
+                // Notifica quando um novo usuário entra
+                socket.on("user-connected", userId => {
+                    connectToNewUser(userId, stream);
+                });
+            })
+            .catch(error => {
+                console.error("Erro ao acessar câmera:", error);
+            });
+
+        // Dispara evento quando o PeerJS recebe um ID
+        peer.on("open", id => {
+            socket.emit("join-room", roomId, id);
+        });
+
+        // Conectar-se a um novo usuário
+        function connectToNewUser(userId, stream) {
+            const call = peer.call(userId, stream);
+            const video = document.createElement("video");
+
+            // Quando o usuário responder a chamada, exibe o vídeo
+            call.on("stream", userVideoStream => {
+                addVideoStream(video, userVideoStream);
+            });
+
+            // Caso a conexão falhe
+            call.on("error", err => {
+                console.error("Erro na chamada:", err);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,15 +1,23 @@
-const https = require("https");
-const fs = require("fs");
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(express.static("src")); // Ajustado para sua pasta
+// Servindo arquivos estáticos (ex: sala.html)
+app.use(express.static("src"));
 
-const options = {
-    key: fs.readFileSync("ssl/key.pem"),
-    cert: fs.readFileSync("ssl/cert.pem")
-};
+io.on("connection", (socket) => {
+    console.log("Usuário conectado:", socket.id);
+    
+    socket.on("join-room", (roomId, userId) => {
+        console.log(`Usuário ${userId} entrou na sala ${roomId}`);
+        socket.join(roomId);
+        socket.to(roomId).emit("user-connected", userId);
+    });
+});
 
-https.createServer(options, app).listen(3000, () => {
-    console.log("Servidor HTTPS rodando em https://localhost:3000");
+server.listen(3000, () => {
+    console.log("Servidor rodando em http://localhost:3000");
 });
