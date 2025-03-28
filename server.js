@@ -47,7 +47,7 @@ io.on("connection", (socket) => {
 });
 
 // Inicia o servidor na rede local
-const HOST = "192.168.1.9"; // Seu IP local
+const HOST = "192.168.1.6"; // Seu IP local
 const PORT = 3000;
 
 server.listen(PORT, HOST, () => {
